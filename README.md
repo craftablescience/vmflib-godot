@@ -1,10 +1,11 @@
-vmflib: a Python package for creating Valve Map Format (VMF) files
+vmflib2: a Python package for creating Valve Map Format (VMF) files
 ==================================================================
 
 vmflib is a python package to help developers create maps for 
 VMF-compatible video games procedurally using Python 3. The VMF format
 is best known for its use in the Source Engine and its many games.
 
+vmflib2 is an attempt to expand and improve on the original vmflib package
 
 Current Status
 --------------
@@ -25,7 +26,7 @@ Current functionality is pretty basic, but it's enough to get you by.
 This is the basic workflow:
 
 ```python
-from vmflib import vmf
+from vmflib2 import vmf
 
 m = vmf.ValveMap()
 
@@ -140,6 +141,3 @@ License
 
 vmflib is provided freely under the Simplified BSD License.
 See LICENSE for full details.
-
-
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/BHSPitMonkey/vmflib/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
