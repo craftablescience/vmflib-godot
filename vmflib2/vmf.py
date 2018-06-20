@@ -116,23 +116,14 @@ class Entity(VmfClass):
     vmf_class_name = 'entity'
     entitycount = 0
 
-    def __init__(self, class_name):
+    def __init__(self, class_name, vmf_map):
         VmfClass.__init__(self)
         self.classname = class_name
-        self.spawnflags = 0
-        self.origin = None
-        self.targetname = None
-
-        self.auto_properties = ['classname', 'spawnflags', 'origin', 
-            'targetname']
-
         p = self.properties
         p['id'] = Entity.entitycount
         Entity.entitycount += 1            # Increment entity counter
-        
-        # Add ourself to the active map
-        if ValveMap.instance:
-            ValveMap.instance.children.append(self)
+
+        vmf_map.children.append(self)
 
 
 class Connections(VmfClass):

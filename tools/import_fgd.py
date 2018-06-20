@@ -26,11 +26,11 @@ INIT_TEXT = "def __init(self, {0}):"
 #IMPORT_TEXT = "import {0}"
 
 
-def to_camel_case(string:str):
-    "Convert an underscore_string to a camelCaseString."
+def to_camel_case(string: str):
+    "Convert an underscore_string to a CamelCaseString."
     out = ""
 
-    upper_next = False
+    upper_next = True
 
     for c in string:
         if c == "_":
@@ -51,17 +51,35 @@ class propertyType:
 
 class propertyInstance:
     """Represents a single property in a single class"""
-    def __init__(self, name:str, type:propertyType, short_description:str, default, long_description:str):
+    def __init__(self, name: str, type: propertyType, short_description: str, default, long_description: str):
         self.name = name
         self.type = type
         self.short_description = short_description
         self.default = default
         self.long_description = long_description
 
+    def represent(self):
+        """Represent this property as a string in the output python file."""
+        out = ""
+        ind2 = "\n" + indent_level(2)
+        out += "{0}# {1} : {2}{0}self.{3} = {4}".format(ind2, self.short_description, self.long_description, self.name,
+                                                        self.default)
+
+        return out
+
+
+class propertyFiller(propertyInstance):
+    """Prints a blank line in the property list"""
+    def __init__(self):
+        propertyInstance.__init__(self, "", None, "", "", "")
+
+    def represent(self):
+        return "\n"
+
 
 class fgdClass:
     """Represents a single class found in the FGD file (usually an entity)"""
-    def __init__(self, class_name:str, argument_string:str, line_number:int, fgd_name:str):
+    def __init__(self, class_name: str, argument_string: str, line_number: int, fgd_name: str, class_lookup:dict):
 
         # Whether this is a base class that can be safely ignored.
         self.is_base = (class_name == "BaseClass")
@@ -71,27 +89,33 @@ class fgdClass:
 
         self.ent_name = "name_not_found"
 
-
-        # TODO grab multi-line description
-
-        # TODO: fix wrong re.
         m = re.match(r"([^=]*)= ([^\s:]*)(?: ?: ?\"([^\n]*)\")?", argument_string)
         if m is None:
-            print("can't match " + argument_string)
-            return
-        args, self.ent_name, self.description = m.group(1,2,3)
+            raise IOError("Can't match '{0}'\nFile: {1}, Line {2}".format(argument_string, fgd_name, line_number))
+
+        args, self.ent_name, self.description = m.group(1, 2, 3)
+
+        if self.ent_name == "worldspawn":
+            # Kind of a hack, as we don't want this one entity to be auto-generated.
+            self.is_base = True
 
         if not self.description:
             self.description = ""
 
-        # TODO read args
+        # Note: The only thing we need to know in the args section is the 'base' property.
+        base_match = re.search("base\(([^()]*)\)", args)
+        if base_match:
+            parents = base_match.group(1).split(",")
+            for parent in [class_lookup[p.strip().lower()] for p in parents]:
+                self.properties.extend(parent.properties)
+                self.properties.append(propertyFiller())
 
         self.name = to_camel_case(self.ent_name)
         self.parent = "Entity"
 
         self.fgd_loc = "{0}, line {1}".format(fgd_name, line_number)
 
-    def add_property(self, prop:propertyInstance):
+    def add_property(self, prop: propertyInstance):
 
         self.properties.append(prop)
 
@@ -110,11 +134,25 @@ class fgdClass:
         out += ind1
         out += "def __init__(self, vmf_map):"
 
-        out += "{0}{1}.__init__(self, \"{2}\")".format(ind2, self.parent, self.ent_name)
+        out += "{0}{1}.__init__(self, \"{2}\", vmf_map)".format(ind2, self.parent, self.ent_name)
 
         out += "\n"
+        for p in self.properties:
+            p: propertyInstance
+            out += p.represent()
 
-        # TODO: fix stub
+        if len(self.properties) > 0:
+            out += "\n{0}self.auto_properties.extend([".format(ind2)
+            for p in self.properties:
+                p: propertyInstance
+                if type(p) == type(propertyFiller()):
+                    continue
+                out += "\"{0}\", ".format(p.name)
+            out = out[:-2]
+            out += "])\n"
+
+
+        # TODO: ensure nothing else needs to be added here
 
         return out
 
@@ -133,6 +171,7 @@ property_types = {
     "flags": None,
     "axis": None,
     "angle": None,
+    "angle_negative_pitch": None,
     "color255": color255_type,
     "color1": None,
     "origin": origin_type,
@@ -141,6 +180,7 @@ property_types = {
     "vector": origin_type,
     "integer": integer_type,
     "node_dest": integer_type,
+    "float": float_type,
     "string": string_type,
     "target_source": string_type,
     "sound": string_type,
@@ -152,6 +192,10 @@ property_types = {
     "npcclass": string_type,
     "filterclass": string_type,
     "material": string_type,
+    "decal": string_type,
+    "instance_file": string_type,
+    "instance_variable": string_type,
+    "instance_parm": string_type,
     "pointentityclass": string_type,
 
 }
@@ -191,7 +235,7 @@ def create_python_file(output_path:str, fgd_name:str, imports:list, classes:list
         for i in imports:
             output_file.write(i)
             output_file.write("\n")
-        output_file.write("\n")
+        output_file.write("\n\n")
 
         for c in classes:
             c: fgdClass
@@ -209,11 +253,23 @@ def import_fgd(fgd_path:str):
     # A list of all of the files our output file will need to import
     imports = ["from vmflib2.vmf import *"]
 
+
+    # Just so that we can find other classes, here's all the classes, keyed by their names (what appears in the FGD file)
+    class_lookup = dict()
+
+    classes = read_fgd(fgd_path, class_lookup)
+
+    fgd_name = os.path.split(fgd_path)[1]
+
+    create_python_file(output_path, fgd_name, imports, classes)
+
+
+def read_fgd(fgd_path, class_lookup):
+
     # A list of all of the classes that we need to add to the file
     classes = []
 
-    # A list of all of the base classes that we WON'T add to the file.
-    base_classes = []
+    loc_prefix = os.path.split(fgd_path)[0]
 
     with open(fgd_path, "r") as input_file:
 
@@ -230,43 +286,83 @@ def import_fgd(fgd_path:str):
         for line_number, line in enumerate(input_file, start=1):
 
             clean_line = line.strip()
-            string_match = re.match("\"([^\"]*)\"+?", clean_line)
+            # Remove comments
+            if clean_line.find("//") > -1:
+                clean_line = clean_line[:clean_line.find("//")]
 
-            if clean_line.find("//") == 0:
-                # We've hit a comment, so ignore the entire line!
-                continue
-            elif clean_line.find("@") == 0:
+            string_match = re.match("\"([^\"]*)\"+?", clean_line)
+            property_match = re.match("([^()]*)\(([^()]*)\)( *: *[^\n]*)?", clean_line)
+            input_match = re.match("input *([^()]*)\(([^()]*)\)( *: *[^\n]*)?", clean_line)
+            output_match = re.match("output *([^()]*)\(([^()]*)\)( *: *[^\n]*)?", clean_line)
+
+            if clean_line.find("@") == 0:
                 # We've hit a new class definition
                 if bracket_level > 0:
                     raise IOError("FGD file has a class definition inside another other class definition! "
                                   "\nLine: {0}, '{1}'".format(line_number, line))
-                class_name, argument_string = re.match("@([\S]*) ([^\n]*)", clean_line).group(1, 2)
+                class_name, argument_string = re.match("@([\S]*)(?: ([^\n]*))?", clean_line).group(1, 2)
+                argument_string: str
 
                 ignoring_class = class_name in ignore_classes
-                if not class_name in entity_classes:
-                    print("Warning: class name {0} not in list of entity class names. tentatively ignoring "
-                          "line {1}.".format(class_name, line_number))
-                    ignoring_class = True
-                if not ignoring_class:
-                    current_class = fgdClass(class_name, argument_string, line_number, fgd_name)
-                    # Add current_class to the right list
-                    (base_classes if current_class.is_base else classes).append(current_class)
+                if class_name == "include":
+                    new_path = os.path.join(loc_prefix, argument_string.replace("\"", ""))
+                    read_fgd(new_path, class_lookup)
+                else:
+                    if not class_name in entity_classes:
+                        print("Warning: class name {0} not in list of entity class names. tentatively ignoring "
+                              "line {1}.".format(class_name, line_number))
+                        ignoring_class = True
+                    if not ignoring_class:
+                        current_class = fgdClass(class_name, argument_string, line_number, fgd_name, class_lookup)
+                        # Add current_class to the class list if not a base class
+                        if not current_class.is_base:
+                            classes.append(current_class)
+                        # And to the lookup
+                        class_lookup[current_class.ent_name.lower()] = current_class
+
             elif clean_line.find("[") == 0:
+                # TODO: handle open brackets at end of line, like dod.fgd
                 bracket_level += 1
             elif clean_line.find("]") == 0:
                 bracket_level -= 1
                 if bracket_level < 0:
                     raise IOError("FGD file has an errant close bracket! "
-                                  "\nLine: {0}, '{1}'".format(line_number, line))
-                current_class = None
+                                  "\nFile: {2}, Line: {0}, '{1}'".format(line_number, line, fgd_name))
+                elif bracket_level == 0:
+                    current_class = None
             elif string_match and current_class and bracket_level == 0:
                 # We've got part of the description!
                 current_class.description += string_match.group(1)
             else:
-                if not ignoring_class:
-                    pass
-                    #TODO add properties to classes
-
-    create_python_file(output_path, fgd_name, imports, classes)
-
+                if current_class and bracket_level == 1 and not ignoring_class:
+                    if string_match:
+                        # TODO add onto last description
+                        pass
+                    elif input_match:
+                        # TODO add inputs
+                        pass
+                    elif output_match:
+                        # TODO add output
+                        pass
+                    elif property_match:
+                        prop_name = property_match.group(1)
+                        prop_type = property_types[property_match.group(2).lower().strip()]
+                        args = property_match.group(3)
+                        prop_short_desc = "TODO: Replace this filler."
+                        prop_long_desc = "TODO: Replace this filler."
+                        prop_default = "\"\""
+                        if not args:
+                            # print(clean_line)
+                            pass
+                        else:
+                            property_args_match = re.match("\s*:\s*\"([^\"]*)\"(?:\s*:\s*([^:=]*))?(?:\s*:\s*\"([^\"]*)\")?", property_match.group(3))
+                            if property_args_match.group(1):
+                                prop_short_desc = property_args_match.group(1)
+                            if property_args_match.group(2):
+                                prop_default = property_args_match.group(2)
+                            if property_args_match.group(3):
+                                prop_long_desc = property_args_match.group(3)
+                        prop = propertyInstance(prop_name, prop_type, prop_short_desc, prop_default, prop_long_desc)
+                        current_class.add_property(prop)
+    return classes
 
