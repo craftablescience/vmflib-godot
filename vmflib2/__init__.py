@@ -7,7 +7,7 @@ game maps using VMF (Valve Map Format). Maps can be created, manipulated, and
 then exported as a VMF file to be compiled and loaded into a game that uses the
 Source Engine.
 
-Project: vmflib
+Project: vmflib2
 Author: Author: Stephen Eisenhauer (mail@stepheneisenhauer.com)
 
 Further reading:

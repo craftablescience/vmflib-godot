@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name = "vmflib",
+    name = "vmflib2",
     version = "0.1.1",
     packages = find_packages(),
     scripts = ['tools/buildbsp.py'],
@@ -12,7 +12,7 @@ setup(
             'buildbsp = buildbsp:main'
         ]
     },
-
+    # TODO: update this
     # metadata for upload to PyPI
     author = "Stephen Eisenhauer",
     author_email = "bhs2007@gmail.com",

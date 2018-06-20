@@ -10,9 +10,9 @@ in contact with one another, but for our purposes this is acceptable.)
 Note: In Ubuntu, you'll need to apt-get install python3-numpy for this example.
 
 """
-from vmflib import *
-from vmflib.types import Vertex
-from vmflib.tools import Block
+from vmflib2 import *
+from vmflib2.types import Vertex
+from vmflib2.tools import Block
 import numpy
 from numpy.random import random_integers as rand
 

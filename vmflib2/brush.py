@@ -4,7 +4,7 @@ Classes for dealing with brushes.
 
 """
 
-from vmflib import types, vmf
+from vmflib2 import types, vmf
 
 
 class Solid(vmf.VmfClass):

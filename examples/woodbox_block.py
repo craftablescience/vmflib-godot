@@ -9,9 +9,9 @@ This example shows off the tools.Block class, which allows for the easy
 creation of 3D block brushes. It's pretty awesome.
 
 """
-from vmflib import *
-from vmflib.types import Vertex
-from vmflib.tools import Block
+from vmflib2 import *
+from vmflib2.types import Vertex
+from vmflib2.tools import Block
 
 m = vmf.ValveMap()
 

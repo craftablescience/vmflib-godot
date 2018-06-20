@@ -16,11 +16,11 @@ https://developer.valvesoftware.com/wiki/Creating_a_Capture_Point
 https://developer.valvesoftware.com/wiki/TF2/King_of_the_Hill
 """
 
-from vmflib import *
-from vmflib.types import Vertex, Output, Origin
-from vmflib.tools import Block
-import vmflib.games.source as source
-import vmflib.games.tf2 as tf2
+from vmflib2 import *
+from vmflib2.types import Vertex, Output, Origin
+from vmflib2.tools import Block
+import vmflib2.games.source as source
+import vmflib2.games.tf2 as tf2
 
 m = vmf.ValveMap()
 la = source.LogicAuto()
