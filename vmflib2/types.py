@@ -16,6 +16,9 @@ class Vertex:
         self.y = y
         self.z = z
 
+    def __getitem__(self, item):
+        return (self.x, self.y, self.z)[item]
+
     def __repr__(self):
         return '(%s %s %s)' % (self.x, self.y, self.z)
 
@@ -32,6 +35,9 @@ class Origin:
             self.x = x
             self.y = y
             self.z = z
+
+    def __getitem__(self, item):
+        return (self.x, self.y, self.z)[item]
 
     def __repr__(self):
         return '%s %s %s' % (self.x, self.y, self.z)

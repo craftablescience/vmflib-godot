@@ -74,7 +74,7 @@ class DispInfo(vmf.VmfClass):
 
     vmf_class_name = 'dispinfo'
 
-    def __init__(self, power, normals, distances):
+    def __init__(self, power, normals, distances, alphas=None):
         vmf.VmfClass.__init__(self)
         self.power = power
         self.startposition = "[0 0 0]"
@@ -84,7 +84,7 @@ class DispInfo(vmf.VmfClass):
         self.distances = Distances(power, distances)
         self.offsets = Offsets(power)
         self.offset_normals = OffsetNormals(power)
-        self.alphas = Alphas(power)
+        self.alphas = Alphas(power, alphas)
         self.triangle_tags = TriangleTags(power)
         self.allowed_verts = AllowedVerts(power)
 
@@ -152,8 +152,15 @@ class OffsetNormals(vmf.VmfClass):
 class Alphas(vmf.VmfClass):
     vmf_class_name = 'alphas'
 
-    def __init__(self, power):
+    def __init__(self, power, values=None):
         vmf.VmfClass.__init__(self)
+
+        if values:
+            for i in range(2**power + 1):
+                row_string = ''
+                for distance in values[i]:
+                    row_string += "%d " % distance
+                self.properties["row%d" % i] = row_string[:-1]
 
 
 class TriangleTags(vmf.VmfClass):

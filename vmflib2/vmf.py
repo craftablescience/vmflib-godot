@@ -5,7 +5,7 @@ Main classes for working with VMF maps.
 """
 
 from vmflib2 import types
-
+import re
 
 ###############################################################################
 ### This is a base class for the VMF "Classes" we will define further down. ###

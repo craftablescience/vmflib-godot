@@ -6,10 +6,9 @@ in the VMF format itself.
 """
 
 from vmflib2 import brush, types
-
+import math
 
 class Block():
-
     """A class representing a 3D block in terms of world geometry.
 
     This class allows for the simple creation and manipulation of 3D
@@ -21,9 +20,9 @@ class Block():
     """
 
     def __init__(self,
-        origin=types.Vertex(),
-        dimensions=(64, 64, 64),
-        material='BRICK/BRICKFLOOR001A'):
+                 origin=types.Vertex(),
+                 dimensions=(64, 64, 64),
+                 material='BRICK/BRICKFLOOR001A'):
         """Create a new Block at origin with dimensions and material."""
         self.origin = origin
         self.dimensions = dimensions
@@ -88,10 +87,107 @@ class Block():
     def bottom(self):
         """Returns the bottom Side of the Block."""
         return self.brush.children[1]
-    
+
     def top(self):
         """Returns the top Side of the Block."""
         return self.brush.children[0]
 
     def __repr__(self, tab_level=-1):
         return self.brush.__repr__(tab_level)
+
+
+class DisplacementMap:
+    """A class representing one upwards-facing mesh, possibly made of multiple displacements sewn together.
+
+    """
+
+    def __init__(self, source, source_alphas=None, origin=types.Vertex(), size=types.Vertex(), x_subdisplacements=4, y_subdisplacements=4,
+                 vertical_scale=1.0):
+
+        self.source = source
+        self.source_alphas = source_alphas
+        self.origin = origin
+        self.size = size
+        self.sub_displacements = (x_subdisplacements, y_subdisplacements)
+        self.vertical_scale = vertical_scale
+        self.power = 4
+
+        self.d_x_size = self.size[0] / self.sub_displacements[0]
+        self.d_y_size = self.size[1] / self.sub_displacements[1]
+
+        self.displacement_brushes = []
+        for dx in range(x_subdisplacements):
+            for dy in range(y_subdisplacements):
+                norms = []
+                for i in range((2 ** self.power) + 1):
+                    row = []
+                    for j in range((2 ** self.power) + 1):
+                        row.append(types.Vertex(0, 0, 1))
+                    norms.append(row)
+                dists = []
+                for x in range((2 ** self.power) + 1):
+                    row = []
+                    for y in range((2 ** self.power), -1, -1):
+                        row.append(source[
+                                       x + ((2 ** self.power) * dx),
+                                       y + ((2 ** self.power) * dy),
+                                   ] * vertical_scale)
+                    dists.append(row)
+                if self.source_alphas:
+                    alphas = []
+                    for x in range((2 ** self.power) + 1):
+                        alphas_row = []
+                        for y in range((2 ** self.power), -1, -1):
+                            alphas_row.append(source_alphas[
+                                           x + ((2 ** self.power) * dx),
+                                           y + ((2 ** self.power) * dy),
+                                   ])
+                        alphas.append(alphas_row)
+                else:
+                    alphas = None
+                d = brush.DispInfo(self.power, norms, dists, alphas)
+
+                # Floor (which orientation this is supposed to go depends on which side of the origin we are -- not recommended)
+                # TODO: account for which grid sector we're in
+                floor = Block(types.Vertex((dx - (x_subdisplacements / 2) + 0.5) * self.d_x_size + origin.x,
+                                           (dy - (y_subdisplacements / 2) + 0.5) * self.d_y_size + origin.y,
+                                           + origin.z),
+                              (self.d_x_size, self.d_y_size, size[2]))
+                floor.top().children.append(d)  # Add disp map to the ground
+
+                self.displacement_brushes.append(floor)
+
+    def set_material(self, material: str):
+        for b in self.displacement_brushes:
+            b.set_material(material)
+
+    def get_height(self, pos):
+        """Returns the real z coordinates that the displacementmap takes on at the given x and y coordinates"""
+        pos_x, pos_y = pos
+        if pos_x < self.origin[0] - (self.size[0] / 2):
+            pos_x = self.origin[0] - (self.size[0] / 2)
+        elif pos_x > self.origin[0] + (self.size[0] / 2):
+            pos_x = self.origin[0] + (self.size[0] / 2)
+        if pos_y < self.origin[1] - (self.size[1] / 2):
+            pos_y = self.origin[1] - (self.size[1] / 2)
+        elif pos_y > self.origin[1] + (self.size[1] / 2):
+            pos_y = self.origin[1] + (self.size[1] / 2)
+
+        rel_x = ((pos_x - self.origin[0]) / self.d_x_size + (self.sub_displacements[0] / 2)) * (2 ** self.power)
+        rel_y = ((pos_y - self.origin[1]) / self.d_y_size + (self.sub_displacements[1] / 2)) * (2 ** self.power)
+
+        # poll from the four points around this one, and get an average
+        poll1 = self.source[math.floor(rel_x), math.floor(rel_y)] * self.vertical_scale
+        poll2 = self.source[math.floor(rel_x), math.ceil(rel_y)] * self.vertical_scale
+        poll3 = self.source[math.ceil(rel_x), math.floor(rel_y)] * self.vertical_scale
+        poll4 = self.source[math.ceil(rel_x), math.ceil(rel_y)] * self.vertical_scale
+
+        return (poll1 + poll2 + poll3 + poll4) / 4 + self.origin[2]
+
+
+
+    def __repr__(self, tab_level=-1):
+        out = ""
+        for b in self.displacement_brushes:
+            out += b.__repr__(tab_level)
+        return out

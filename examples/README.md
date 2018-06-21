@@ -73,6 +73,21 @@ This script produces the same result as woodbox, but without the tools.Block
 class.  In other words, all the sides and vertices are specified in the script. 
 This is the nitty-gritty way of specifying world geometry.
 
+## heightmap
+
+Game: Half-Life 2
+
+This script demonstrates generating a map consisting of a large
+island covered with trees.
+
+This example shows off the tools.DisplacementMap class, which allows for the easy
+creation of multi-displacement surfaces. The height data is read from a heightmap image, and the alpha data (whether
+any particular spot is sand or grass) is made based off of the height data.
+
+This example requires the PIL package for reading the heightmap image.
+
+![Screenshot](screenshots/heightmap.jpg)
+
 ## keyboard
 
 Game: Half-Life 2

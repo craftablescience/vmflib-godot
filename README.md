@@ -48,7 +48,7 @@ from vmflib.types import Vertex
 from vmflib.tools import Block
 
 block = Block(Vertex(0, 0, -512), (1024, 1024, 64), 'BRICK/BRICKFLOOR001A')
-m.world.children.append(block)
+m.add_solid(block)
 ```
 
 If you'd like to quickly start playing with vmflib interactively, simply
@@ -81,11 +81,7 @@ do:
 * tools: Classes that provide higher-level management of brush geometry (just
   `Block` for now) These abstractions don't exist within the VMF spec, so it is
   up to the tool (e.g. Hammer, or this library) to manage them internally.
-* games: A package containing modules providing game-specific helper classes
-    * source: Classes that provide abstractions for entities used across all
-      Source Engine games.
-    * tf2: Classes that provide abstractions for entities specific to Team
-      Fortress 2 maps.
+* games: A package containing modules providing game-specific helper classes, each generated automatically from the game's FGD file
 
 
 Try an example
@@ -109,7 +105,7 @@ You'll need:
 
 If you're using a basic Windows command prompt (cmd.exe):
 
-1.  `cd` into the `vmflib` directory where you cloned this repository.
+1.  `cd` into the `vmflib2` directory where you cloned this repository.
 2.  `set PYTHONPATH=.`
 3.  `python3 examples\outdoor.py`
 4.  `python3 tools\buildbsp.py --game tf2 outdoor.vmf`
@@ -117,7 +113,7 @@ If you're using a basic Windows command prompt (cmd.exe):
 
 If you're in a cygwin shell:
 
-1.  `cd` into the `vmflib` directory where you cloned this repository.
+1.  `cd` into the `vmflib2` directory where you cloned this repository.
 2.  `export PYTHONPATH=.`
 3.  `examples/outdoor.py`
 4.  `tools/buildbsp.py --game tf2 outdoor.vmf`
@@ -127,7 +123,7 @@ If you're in a cygwin shell:
 
 If you're using Linux:
 
-1.  `cd` into the `vmflib` directory where you cloned this repository.
+1.  `cd` into the `vmflib2` directory where you cloned this repository.
 2.  `examples/outdoor.py`
 3.  `export sourcesdk=/path/to/windows/steam/sourcesdk/directory`
 4.  `tools/buildbsp.py --game tf2 outdoor.vmf`
@@ -139,5 +135,5 @@ If you're using Linux:
 License
 -------
 
-vmflib is provided freely under the Simplified BSD License.
+vmflib2 is provided freely under the Simplified BSD License.
 See LICENSE for full details.
