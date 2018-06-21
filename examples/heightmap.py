@@ -19,7 +19,7 @@ heightmap_range = 512
 
 displacement_height_scale = heightmap_range / 255
 
-map_size = (58 * 256, 58 * 256)
+map_size = (120 * 256, 120 * 256)
 map_height = heightmap_range + 1024
 water_height = 128
 
@@ -27,12 +27,12 @@ water_height = 128
 # Sun angle	S Pitch	Brightness		Ambience
 # 0 225 0	 -25	 254 242 160 400	172 196 204 80
 
-displacements_per_side = 10
+displacements_per_side = 20
 
 d_x_size = map_size[0] / displacements_per_side
 d_y_size = map_size[1] / displacements_per_side
 
-map_center = (map_size[0] / 2, -map_size[1] / 2)
+map_center = (0, 0)
 
 image_size = 16 * displacements_per_side + 1
 
@@ -79,17 +79,20 @@ light = base.LightEnvironment(m, angles="0 225 0", pitch=-25, _light="254 242 16
 # Displacement map for the floor
 # do cool stuff
 
-dm = DisplacementMap(new_source, alphas, types.Vertex(map_size[0] / 2, -map_size[1] / 2, -16),
-                     types.Vertex(map_size[0], map_size[1], 32), displacements_per_side,
-                     displacements_per_side, displacement_height_scale)
+disp_org = types.Vertex(map_center[0], map_center[1], -16)  # types.Vertex(map_size[0] / 2, -map_size[1] / 2, -16),
+
+dm = DisplacementMap(source=new_source, source_alphas=alphas, origin=disp_org,
+                     size=types.Vertex(map_size[0], map_size[1], 32), x_subdisplacements=displacements_per_side,
+                     y_subdisplacements=displacements_per_side, vertical_scale=displacement_height_scale)
 
 dm.set_material("nature/blendsandgrass008a")
 m.add_solid(dm)
 
 # This section places something on the surface every few units -- good for ensuring that the get_height method works
 scatter_offset = 128
-for x in range(scatter_offset, map_size[0], scatter_offset):
-    for y in range(-scatter_offset, -map_size[0], -scatter_offset):
+for x in range((map_center[0] - map_size[0] // 2) + scatter_offset, (map_center[0] + map_size[0] // 2), scatter_offset):
+    for y in range((map_center[1] - map_size[1] // 2) + scatter_offset, (map_center[1] + map_size[1] // 2),
+                   scatter_offset):
         h = dm.get_height((x, y))
 
         if water_height - 40 < h < water_height - 32 and random.randrange(10) == 1:
@@ -102,14 +105,14 @@ for x in range(scatter_offset, map_size[0], scatter_offset):
                             angles=types.Origin(0, random.randrange(360), 0), skin=1)
 
 # Real Floor (This is what seals the map to prevent leaks)
-real_floor = Block(Vertex(map_size[0] / 2, -map_size[1] / 2, -16), (map_size[0], map_size[1], 32), 'tools/toolsnodraw')
+real_floor = Block(Vertex(map_center[0], map_center[1], -16), (map_size[0], map_size[1], 32), 'tools/toolsnodraw')
 
-water = Block(Vertex(map_size[0] / 2, -map_size[1] / 2, water_height / 2), (map_size[0], map_size[1], water_height),
+water = Block(Vertex(map_center[0], map_center[1], water_height / 2), (map_size[0], map_size[1], water_height),
               'tools/toolsnodraw')
 water.top().material = 'nature/water_canals_city_murky'
 
 # Ceiling
-ceiling = Block(Vertex(map_size[0] / 2, -map_size[1] / 2, map_height + 16), (map_size[0], map_size[1], 32))
+ceiling = Block(Vertex(map_center[0], map_center[1], map_height + 16), (map_size[0], map_size[1], 32))
 ceiling.set_material('tools/toolsskybox2d')
 
 # Prepare some upper walls for the skybox
@@ -118,16 +121,21 @@ wall_thickness = 64
 
 # Left wall
 skywalls.append(
-    Block(Vertex(-wall_thickness / 2, -map_size[1] / 2, map_height / 2), (wall_thickness, map_size[1], map_height)))
+    Block(
+        Vertex(-wall_thickness / 2 + map_center[0] - map_size[0] / 2, map_center[1], map_height / 2),
+        (wall_thickness, map_size[1], map_height)))
 # Right wall
 skywalls.append(
-    Block(Vertex(map_size[0] + wall_thickness / 2, -map_size[1] / 2, map_height / 2), (64, map_size[1], map_height)))
+    Block(Vertex(+wall_thickness / 2 + map_center[0] + map_size[0] / 2, map_center[1], map_height / 2),
+          (64, map_size[1], map_height)))
 # Forward wall
-skywalls.append(Block(Vertex(map_size[0] / 2, 0 + wall_thickness / 2, map_height / 2),
-                      (map_size[0] + 2 * wall_thickness, wall_thickness, map_height)))
+skywalls.append(
+    Block(Vertex(map_center[0], wall_thickness / 2 + map_center[1] + map_size[1] / 2, map_height / 2),
+          (map_size[0] + 2 * wall_thickness, wall_thickness, map_height)))
 # Rear wall
-skywalls.append(Block(Vertex(map_size[0] / 2, -map_size[1] - wall_thickness / 2, map_height / 2),
-                      (map_size[0] + 2 * wall_thickness, wall_thickness, map_height)))
+skywalls.append(
+    Block(Vertex(map_center[0], -wall_thickness / 2 + map_center[1] - map_size[1] / 2, map_height / 2),
+          (map_size[0] + 2 * wall_thickness, wall_thickness, map_height)))
 for wall in skywalls:
     wall.set_material('tools/toolsskybox2d')
 

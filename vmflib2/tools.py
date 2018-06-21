@@ -8,6 +8,7 @@ in the VMF format itself.
 from vmflib2 import brush, types
 import math
 
+
 class Block():
     """A class representing a 3D block in terms of world geometry.
 
@@ -101,7 +102,8 @@ class DisplacementMap:
 
     """
 
-    def __init__(self, source, source_alphas=None, origin=types.Vertex(), size=types.Vertex(), x_subdisplacements=4, y_subdisplacements=4,
+    def __init__(self, source, source_alphas=None, origin=types.Vertex(), size=types.Vertex(), x_subdisplacements=4,
+                 y_subdisplacements=4,
                  vertical_scale=1.0):
 
         self.source = source
@@ -115,43 +117,79 @@ class DisplacementMap:
         self.d_x_size = self.size[0] / self.sub_displacements[0]
         self.d_y_size = self.size[1] / self.sub_displacements[1]
 
+
+        rotation_counts = {
+            (True, True): 3,
+            (True, False): 0,
+            (False, False): 1,
+            (False, True): 2
+        }
+
         self.displacement_brushes = []
+
         for dx in range(x_subdisplacements):
             for dy in range(y_subdisplacements):
+
+                power = 2 ** self.power
+
+                x_offset = power * dx
+                y_offset = power * dy
+
+                # The actual position the displacement brush will be in
+                x_pos = (dx - (x_subdisplacements / 2) + 0.5) * self.d_x_size + origin.x
+                y_pos = (dy - (y_subdisplacements / 2) + 0.5) * self.d_y_size + origin.y
+
+
+                # The modifications of which order we load the values into the array need to happen for some reason.
+                # Source just wants things in a different order depending on which quadrant you're in I guess.
+
+                forward_range = list(range(power + 1))
+                backwards_range = list(range(power, -1, -1))
+
+                x_range = forward_range
+                y_range = backwards_range
+
                 norms = []
-                for i in range((2 ** self.power) + 1):
+                for i in x_range:
                     row = []
-                    for j in range((2 ** self.power) + 1):
+                    for j in y_range:
                         row.append(types.Vertex(0, 0, 1))
                     norms.append(row)
                 dists = []
-                for x in range((2 ** self.power) + 1):
+                for x in x_range:
                     row = []
-                    for y in range((2 ** self.power), -1, -1):
-                        row.append(source[
-                                       x + ((2 ** self.power) * dx),
-                                       y + ((2 ** self.power) * dy),
-                                   ] * vertical_scale)
+                    for y in y_range:
+                        rel_x = x + x_offset
+                        rel_y = y + y_offset
+                        row.append(source[rel_x, rel_y] * vertical_scale)
                     dists.append(row)
                 if self.source_alphas:
                     alphas = []
-                    for x in range((2 ** self.power) + 1):
+                    for x in x_range:
                         alphas_row = []
-                        for y in range((2 ** self.power), -1, -1):
-                            alphas_row.append(source_alphas[
-                                           x + ((2 ** self.power) * dx),
-                                           y + ((2 ** self.power) * dy),
-                                   ])
+                        for y in y_range:
+                            rel_x = x + x_offset
+                            rel_y = y + y_offset
+                            alphas_row.append(source_alphas[rel_x, rel_y])
                         alphas.append(alphas_row)
                 else:
                     alphas = None
+
+                # There's a weird quirk where the displacement gets rotated depending on what quadrant it's origin is
+                # in. I'm not sure whether this is something to do with the source engine, or the Block tool.
+                # either way, the following StackOverflow-code accounts for it by rotating the displacement back.
+                # (it's still wrong sometimes when the displacements' origin x or y are 0, so don't do that)
+                rotation_count = rotation_counts[x_pos > 0, y_pos >= 0]
+                for i in range(rotation_count):
+                    dists = list(zip(*dists[::-1]))
+                    norms = list(zip(*norms[::-1]))
+                    if alphas:
+                        alphas = list(zip(*alphas[::-1]))
+
+
                 d = brush.DispInfo(self.power, norms, dists, alphas)
 
-                # Floor (which orientation this is supposed to go depends on which side of the origin we are -- not recommended)
-                # TODO: account for which grid sector we're in
-                floor = Block(types.Vertex((dx - (x_subdisplacements / 2) + 0.5) * self.d_x_size + origin.x,
-                                           (dy - (y_subdisplacements / 2) + 0.5) * self.d_y_size + origin.y,
-                                           + origin.z),
+                floor = Block(types.Vertex(x_pos, y_pos, origin.z),
                               (self.d_x_size, self.d_y_size, size[2]))
                 floor.top().children.append(d)  # Add disp map to the ground
 
@@ -183,8 +221,6 @@ class DisplacementMap:
         poll4 = self.source[math.ceil(rel_x), math.ceil(rel_y)] * self.vertical_scale
 
         return (poll1 + poll2 + poll3 + poll4) / 4 + self.origin[2]
-
-
 
     def __repr__(self, tab_level=-1):
         out = ""
