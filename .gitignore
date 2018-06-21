@@ -14,3 +14,4 @@ dist/
 *.egg-info/
 
 .idea/
+fgd/

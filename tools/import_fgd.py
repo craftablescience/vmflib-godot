@@ -14,6 +14,8 @@ import re
 #import vmflib2
 import datetime
 import os.path
+import keyword
+
 
 DOCSTRING = "\"\"\"{0}\"\"\""
 START_DOCSTRING_TEXT = "\nHelper classes for creating maps in any Source Engine game that uses {0}.\n" \
@@ -52,6 +54,11 @@ class propertyType:
 class propertyInstance:
     """Represents a single property in a single class"""
     def __init__(self, name: str, type: propertyType, short_description: str, default, long_description: str):
+
+        if keyword.iskeyword(name):
+            print("Warning: property '{0}' is reserved keyword!".format(name))
+            name += "_"
+
         self.name = name
         self.type = type
         self.short_description = short_description
@@ -62,11 +69,15 @@ class propertyInstance:
         """Represent this property as a string in the output python file."""
         out = ""
         ind2 = "\n" + indent_level(2)
-        out += "{0}# {1} : {2}{0}self.{3} = {4}".format(ind2, self.short_description, self.long_description, self.name,
+        out += "{0}# {1} : {2}{0}self.{3} = {3}".format(ind2, self.short_description, self.long_description, self.name,
                                                         self.default)
 
         return out
 
+    def init_line_represent(self):
+        """Represent this property as an arg in the init function line"""
+        out = ", {0}={1}".format(self.name, self.default)
+        return out
 
 class propertyFiller(propertyInstance):
     """Prints a blank line in the property list"""
@@ -75,6 +86,11 @@ class propertyFiller(propertyInstance):
 
     def represent(self):
         return "\n"
+
+    def init_line_represent(self):
+        return ""
+
+
 
 
 class fgdClass:
@@ -85,11 +101,14 @@ class fgdClass:
         self.is_base = (class_name == "BaseClass")
         self.is_solid = (class_name == "SolidClass")
         self.is_filter = (class_name == "FilterClass")
+        self.is_point_class = (class_name not in ("SolidClass", "BaseClass"))
         self.properties = []
 
+        if self.is_point_class:
+            self.add_property(propertyInstance("origin", property_types["origin"], "Origin", "\"0 0 0\"", "This entity's location in 3D space."))
         self.ent_name = "name_not_found"
 
-        m = re.match(r"([^=]*)= ([^\s:]*)(?: ?: ?\"([^\n]*)\")?", argument_string)
+        m = re.match(r"([^=]*)=\s*([^\s:]*)(?: ?: ?\"([^\n]*)\")?", argument_string)
         if m is None:
             raise IOError("Can't match '{0}'\nFile: {1}, Line {2}".format(argument_string, fgd_name, line_number))
 
@@ -107,8 +126,9 @@ class fgdClass:
         if base_match:
             parents = base_match.group(1).split(",")
             for parent in [class_lookup[p.strip().lower()] for p in parents]:
-                self.properties.extend(parent.properties)
-                self.properties.append(propertyFiller())
+                for prop in parent.properties:
+                    self.add_property(prop)
+                self.add_property(propertyFiller())
 
         self.name = to_camel_case(self.ent_name)
         self.parent = "Entity"
@@ -116,6 +136,10 @@ class fgdClass:
         self.fgd_loc = "{0}, line {1}".format(fgd_name, line_number)
 
     def add_property(self, prop: propertyInstance):
+
+        if not isinstance(prop, type(propertyFiller())):
+            # Remove duplicate properties
+            self.properties = list(filter(lambda x: x.name != prop.name, self.properties))
 
         self.properties.append(prop)
 
@@ -132,7 +156,11 @@ class fgdClass:
         out += DOCSTRING.format(docstring)
 
         out += ind1
-        out += "def __init__(self, vmf_map):"
+        out += "def __init__(self, vmf_map"
+        for p in self.properties:
+            p: propertyInstance
+            out += p.init_line_represent()
+        out += "):"
 
         out += "{0}{1}.__init__(self, \"{2}\", vmf_map)".format(ind2, self.parent, self.ent_name)
 
@@ -291,16 +319,16 @@ def read_fgd(fgd_path, class_lookup):
                 clean_line = clean_line[:clean_line.find("//")]
 
             string_match = re.match("\"([^\"]*)\"+?", clean_line)
-            property_match = re.match("([^()]*)\(([^()]*)\)( *: *[^\n]*)?", clean_line)
-            input_match = re.match("input *([^()]*)\(([^()]*)\)( *: *[^\n]*)?", clean_line)
-            output_match = re.match("output *([^()]*)\(([^()]*)\)( *: *[^\n]*)?", clean_line)
+            property_match = re.match("([^()]*)\(([^()]*)\)(\s*:\s*[^\n]*)?", clean_line)
+            input_match = re.match("input\s*([^()]*)\(([^()]*)\)(\s*:\s*[^\n]*)?", clean_line)
+            output_match = re.match("output\s*([^()]*)\(([^()]*)\)(\s*:\s*[^\n]*)?", clean_line)
 
             if clean_line.find("@") == 0:
                 # We've hit a new class definition
                 if bracket_level > 0:
                     raise IOError("FGD file has a class definition inside another other class definition! "
                                   "\nLine: {0}, '{1}'".format(line_number, line))
-                class_name, argument_string = re.match("@([\S]*)(?: ([^\n]*))?", clean_line).group(1, 2)
+                class_name, argument_string = re.match("@([\S]*)(?:\s*([^\n]*))?", clean_line).group(1, 2)
                 argument_string: str
 
                 ignoring_class = class_name in ignore_classes
@@ -349,7 +377,7 @@ def read_fgd(fgd_path, class_lookup):
                         prop_type = property_types[property_match.group(2).lower().strip()]
                         args = property_match.group(3)
                         prop_short_desc = "TODO: Replace this filler."
-                        prop_long_desc = "TODO: Replace this filler."
+                        prop_long_desc = ""
                         prop_default = "\"\""
                         if not args:
                             # print(clean_line)
@@ -360,9 +388,18 @@ def read_fgd(fgd_path, class_lookup):
                                 prop_short_desc = property_args_match.group(1)
                             if property_args_match.group(2):
                                 prop_default = property_args_match.group(2)
+                                # Hack to fix strings cut off by found ':' char. A better fix would be a regex that ignored ':''s in strings.
+                                if prop_default.count("\"") == 1:
+                                    prop_default += "\""
+                                prop_default = prop_default.strip()
                             if property_args_match.group(3):
                                 prop_long_desc = property_args_match.group(3)
                         prop = propertyInstance(prop_name, prop_type, prop_short_desc, prop_default, prop_long_desc)
                         current_class.add_property(prop)
     return classes
 
+def import_all():
+
+    for f in os.listdir("fgd/"):
+        print("Importing {0}".format(f))
+        import_fgd(os.path.join("fgd", f))

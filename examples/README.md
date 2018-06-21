@@ -55,7 +55,7 @@ empty room.
 This example shows off the tools.Block class, which allows for the easy
 creation of 3D block brushes
 
-![Screenshot](http://i.imgur.com/ln13v1V.jpg)
+![Screenshot](screenshots/woodbox.jpg)
 
 ## woodbox
 

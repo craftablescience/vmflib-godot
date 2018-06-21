@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 """Example map generator: Outdoor
 
-This script demonstrates vmflib by generating a map with a 2D skybox and
+This script demonstrates vmflib2 by generating a map with a 2D skybox and
 some terrain (a displacement map).
 
 """
@@ -9,7 +9,7 @@ from vmflib2 import *
 from vmflib2.types import Vertex
 from vmflib2.tools import Block
 from vmflib2.brush import DispInfo
-import vmflib2.games.source as source
+import vmflib2.games.base as base
 
 m = vmf.ValveMap()
 
@@ -17,8 +17,7 @@ m = vmf.ValveMap()
 # Sun angle	S Pitch	Brightness		Ambience
 # 0 225 0	 -25	 254 242 160 400	172 196 204 80
 m.world.skyname = 'sky_day02_01'
-light = source.LightEnvironment()
-light.set_all("0 225 0", -25, "254 242 160 400", "172 196 204 80")
+light = base.LightEnvironment(m, angles="0 225 0", pitch=-25, _light="254 242 160 400", _ambient="172 196 204 80")
 
 # Displacement map for the floor
 # do cool stuff
@@ -41,6 +40,9 @@ d = DispInfo(4, norms, dists)
 floor = Block(Vertex(0, 0, -480), (2048, 2048, 64), 'nature/dirtfloor003a')
 floor.top().lightmapscale = 32
 floor.top().children.append(d)  # Add disp map to the ground
+
+# Real Floor (This is what seals the map to prevent leaks)
+real_floor = Block(Vertex(0, 0, -480-32), (2048, 2048, 32), 'tools/toolsnodraw')
 
 # Ceiling
 ceiling = Block(Vertex(0, 0, 512), (2048+128, 2048+128, 64))
@@ -74,11 +76,11 @@ for wall in walls:
     wall.set_material('brick/brickwall003a')
 
 # Add everything we prepared to the world geometry
-m.world.children.extend(walls)
-m.world.children.extend(skywalls)
-m.world.children.extend([floor, ceiling])
+m.add_solids(walls)
+m.add_solids(skywalls)
+m.add_solids([floor, ceiling, real_floor])
 
-# TODO: Define a playerspawn entity
+spawn = base.InfoPlayerStart(m, origin=types.Origin(0, 0, -256-128))
 
 # Write the map to a file
 m.write_vmf('outdoor.vmf')

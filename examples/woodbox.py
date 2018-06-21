@@ -14,6 +14,9 @@ a demonstration.
 """
 
 from vmflib2 import *
+from vmflib2.games import base
+import math
+import colorsys
 
 m = vmf.ValveMap()
 
@@ -202,8 +205,33 @@ for side in sides:
     side.material = 'wood/woodwall009a'
 walls[5].children.extend(sides)
 
+# Generate u-v axis for each plane
+for wall in walls:
+    for side in wall.children:
+        side.uaxis, side.vaxis = side.plane.sensible_axes()
+
 # Add walls to world geometry
-m.world.children.extend(walls)
+m.add_solids(walls)
+
+spawn = base.InfoPlayerStart(m, origin=types.Origin(0, 0, -512 + 64))
+
+# Generate the oblate-spheroid of light_spots that illuminate this room
+for x_ang in range(-75,75, 15):
+    x_a = math.radians(x_ang + 90)
+    for y_ang in range(0, 360, 15):
+        y_a = math.radians(y_ang)
+        origin = types.Origin(
+            256 * math.cos(y_a) * math.sin(x_a),
+            256 * math.sin(y_a) * math.sin(x_a),
+            -128 * math.cos(x_a)
+        )
+        # Get an rgb value from a hsv value
+        rgb = colorsys.hsv_to_rgb(y_ang / 360, (x_ang / 180) + 0.5, 1)
+        # Convert from [0-1] to [0-255]
+        r, g, b = (int(v * 255) for v in rgb)
+        light = "{0} {1} {2} 400".format(r, g, b)
+        angles = types.Origin(x_ang, y_ang, 0)
+        base.LightSpot(m, origin=origin, angles=angles, pitch=x_ang, _light=light)
 
 # Write the map to a file
 m.write_vmf('woodbox.vmf')
