@@ -7,7 +7,9 @@ of what they produce.
 
 ## koth_vmflib_example
 
-This script demonstrates vmflib by generating a basic "king of the hill" style
+Game: Team Fortress 2
+
+This script demonstrates vmflib2 by generating a basic "king of the hill" style
 map.  "King of the hill" is a game mode in Team Fortress 2 where each team tries
 to maintain control of a central "control point" for some total defined amount
 of time (before the other team does).
@@ -20,7 +22,9 @@ spawn/resupply areas is also planned.
 
 ## maze
 
-This script demonstrates vmflib by generating a map that places the player
+Game: Team Fortress 2
+
+This script demonstrates vmflib2 by generating a map that places the player
 inside a maze. The maze itself is dynamically generated upon execution of 
 this script, using 
 [an example maze generation function from Wikipedia](http://en.wikipedia.org/wiki/Maze_generation_algorithm#Python_code_example).
@@ -30,6 +34,8 @@ This example also shows how team-specific spawn points can be defined.
 ![Screenshot](http://i.imgur.com/HIjDmPn.jpg)
 
 ## outdoor
+
+Game: Half-Life 2
 
 This script demonstrates generating a map with a 2D skybox and
 some terrain (a displacement map).
@@ -49,6 +55,8 @@ simple math formula based on the row and column for the distances.
 
 ## woodbox_block
 
+Game: Half-Life 2
+
 This script demonstrates generating a map consisting of a large
 empty room.
 
@@ -59,6 +67,18 @@ creation of 3D block brushes
 
 ## woodbox
 
+Game: Half-Life 2
+
 This script produces the same result as woodbox, but without the tools.Block 
 class.  In other words, all the sides and vertices are specified in the script. 
 This is the nitty-gritty way of specifying world geometry.
+
+## keyboard
+
+Game: Half-Life 2
+
+This script demonstrates spawning NPCs, items, and weapons. The NPCs have connections
+that make each one play a sound when used. There also are several crates full of manhacks
+that will attack the NPCs, also triggering the sound.
+
+![Screenshot](screenshots/keyboard.jpg)
