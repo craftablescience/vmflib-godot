@@ -18,7 +18,7 @@ This example highlights the use of TF2 game mechanics (in this case the use of
 a control point and a goal timer). A simple implementation of team 
 spawn/resupply areas is also planned.
 
-![Screenshot](http://i.imgur.com/xsMwWRe.jpg)
+![Screenshot](screenshots/koth_vmflib_example.jpg)
 
 ## maze
 
@@ -31,7 +31,7 @@ this script, using
 
 This example also shows how team-specific spawn points can be defined.
 
-![Screenshot](http://i.imgur.com/HIjDmPn.jpg)
+![Screenshot](screenshots/maze.jpg)
 
 ## outdoor
 
@@ -51,7 +51,7 @@ a displacement map.  In this example, we just use (0 0 1) for all of the normal
 vectors (all of the displacements will be straight up along the Z axis) and a 
 simple math formula based on the row and column for the distances.
 
-![Screenshot](http://i.imgur.com/FnwEuv2.jpg)
+![Screenshot](screenshots/outdoor.jpg)
 
 ## woodbox_block
 

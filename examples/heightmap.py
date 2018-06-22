@@ -10,31 +10,35 @@ from vmflib2.types import Vertex
 from vmflib2.tools import Block, DisplacementMap
 from vmflib2.brush import DispInfo
 import vmflib2.games.base as base
+import vmflib2.games.halflife2 as hl2
 from PIL import Image
 import random
 
 m = vmf.ValveMap()
 
-heightmap_range = 512
+heightmap_range = 1024
 
 displacement_height_scale = heightmap_range / 255
 
-map_size = (120 * 256, 120 * 256)
+map_size = ((64 + 32) * 256, (64 + 32) * 256)
 map_height = heightmap_range + 1024
-water_height = 128
+water_height = 256
 
 # Environment and lighting
 # Sun angle	S Pitch	Brightness		Ambience
 # 0 225 0	 -25	 254 242 160 400	172 196 204 80
 
-displacements_per_side = 20
+displacements_per_side = 32
 
 d_x_size = map_size[0] / displacements_per_side
 d_y_size = map_size[1] / displacements_per_side
 
 map_center = (0, 0)
 
-image_size = 16 * displacements_per_side + 1
+# TODO pass power to DisplacementMap
+power = 3
+
+image_size = 2 ** power * displacements_per_side + 1
 
 heightmap_file = "examples/height.png"
 
@@ -55,23 +59,7 @@ alphas = dict()
 
 for x in range(image_size):
     for y in range(image_size):
-        h = new_source[x, y] - water_height / displacement_height_scale
-        if x > 0 and y > 0:
-            rough_slope = ((new_source[x - 1, y] - new_source[x, y]) ** 2 + (
-                new_source[x, y - 1] - new_source[x, y]) ** 2) ** (2 / 4)
-        else:
-            rough_slope = 0
-        if h < 0:
-            a = 0
-        if h > 0:
-            a = (h * 8)
-        if a > 255:
-            a = 255
-        if h > 0:
-            a -= rough_slope * 8
-        if a < 0:
-            a = 0
-        alphas[x, y] = a
+        alphas[x, y] = 0
 
 m.world.skyname = 'sky_day02_01'
 light = base.LightEnvironment(m, angles="0 225 0", pitch=-25, _light="254 242 160 400", _ambient="172 196 204 80")
@@ -86,6 +74,23 @@ dm = DisplacementMap(source=new_source, source_alphas=alphas, origin=disp_org,
                      y_subdisplacements=displacements_per_side, vertical_scale=displacement_height_scale)
 
 dm.set_material("nature/blendsandgrass008a")
+
+# Calculate the alphas for the displacement map
+for x in range(image_size - 1):
+    for y in range(image_size - 1):
+        h = dm[x, y]
+        a = 0
+        if h > water_height:
+            a = h - water_height
+            pass
+        if a > 255:
+            a = 255
+        a -= dm.get_slope((x, y)) * (255 / 3.14159) * 3
+        if a < 0:
+            a = 0
+
+        dm.source_alphas[x, y] = a
+
 m.add_solid(dm)
 
 # This section places something on the surface every few units -- good for ensuring that the get_height method works
@@ -95,12 +100,14 @@ for x in range((map_center[0] - map_size[0] // 2) + scatter_offset, (map_center[
                    scatter_offset):
         h = dm.get_height((x, y))
 
-        if water_height - 40 < h < water_height - 32 and random.randrange(10) == 1:
-            base.PropPhysics(m, origin=types.Origin(x, y, water_height),
+        if water_height - 64 < h < water_height - 32 and random.randrange(20) == 0:
+            # This spot is in shallow water, so spawn a boat. (spawn it slightly higher than water level, so that it can float)
+            base.PropPhysics(m, origin=types.Origin(x, y, water_height+8),
                              angles=types.Origin(0, random.randrange(360), 0),
                              model="models/props_canal/boat001{0}.mdl".format(("a", "b")[random.randrange(2)]))
-        elif water_height + 128 < h and random.randrange(20) == 1:
-            base.PropStatic(m, origin=types.Origin(x, y, h),
+        elif water_height + 128 < h and random.randrange(20) == 0:
+            # We have an area somewhat away from the shore, so we can put a tree here.
+            base.PropStatic(m, origin=types.Origin(x, y, h - 3),
                             model="models/props_foliage/tree_deciduous_0{0}a.mdl".format(random.randrange(3) + 1),
                             angles=types.Origin(0, random.randrange(360), 0), skin=1)
 
@@ -144,11 +151,20 @@ m.add_solids(skywalls)
 m.add_solids([ceiling, water, real_floor])
 
 # Add the spawnpoint, at ground level, at the center of the map
-spawn = base.InfoPlayerStart(m, origin=types.Origin(map_center[0], map_center[1], dm.get_height(map_center) + 38))
+player_origin = types.Origin(map_center[0], map_center[1], dm.get_height(map_center) + 38)
+spawn = base.InfoPlayerStart(m, origin=player_origin)
+suit = hl2.ItemSuit(m, origin=player_origin)
+
+airboat_spawn = (map_center[0] + 512, map_center[1])
+airboat = hl2.PropVehicleAirboat(m, origin=types.Origin(airboat_spawn[0], airboat_spawn[1],
+                                                        dm.get_height(airboat_spawn) + 32), EnableGun=1)
 
 # Add a soundscape entity, up where we can see it, to the center of the map
 base.EnvSoundscape(m, radius=-1, soundscape="coast.general_shoreline",
                    origin=types.Origin(map_center[0], map_center[1], map_height - 128))
+
+# Create the displacement brushes from the displacement map.
+dm.realize()
 
 # Write the map to a file
 m.write_vmf('heightmap.vmf')
