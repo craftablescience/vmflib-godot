@@ -5,11 +5,11 @@ in the VMF format itself.
 
 """
 
-from vmflib2 import brush, types
+from vmflib2 import brush, types, utility
 import math
 
 
-class Block():
+class Block:
     """A class representing a 3D block in terms of world geometry.
 
     This class allows for the simple creation and manipulation of 3D
@@ -103,16 +103,26 @@ class DisplacementMap:
     """
 
     def __init__(self, source, source_alphas=None, origin=types.Vertex(), size=types.Vertex(), x_subdisplacements=4,
-                 y_subdisplacements=4,
-                 vertical_scale=1.0):
+                 y_subdisplacements=4, power=3):
+        # This is the data we will use to build our displacements.
         self.source = source
+        # This is the data we use to build the alpha map
         self.source_alphas = source_alphas
+        # This is the physical location of the DM's center.
         self.origin = origin
+        # This is the length, width, and height of the DM
         self.size = size
+        # This is the number of displacements we will have along the x and y axis, respectively.
         self.sub_displacements = (x_subdisplacements, y_subdisplacements)
 
-        self.vertical_scale = vertical_scale
-        self.power = 3
+        if power not in (2, 3, 4):
+            raise ValueError("Power of a DisplacementMap must be 2, 3, or 4, not {0}.".format(power))
+
+        # The power of each subdisplacement. (2 ^ power) is the number of grid points the displacement will have.
+        self.power = power
+
+        self.source_width = (2 ** self.power * self.sub_displacements[0]) + 1
+        self.source_height = (2 ** self.power * self.sub_displacements[1]) + 1
 
         # The actual grid-size of displacement brushes
         self.d_x_size = self.size[0] / self.sub_displacements[0]
@@ -123,11 +133,10 @@ class DisplacementMap:
         self.d_y_p_size = self.d_y_size / (2 ** self.power)
 
         self.material = ""
-
         self.displacement_brushes = []
 
     def __getitem__(self, item):
-        return self.source[item] * self.vertical_scale
+        return self.source[item]
 
     def set_material(self, material: str):
         self.material = material
@@ -164,7 +173,7 @@ class DisplacementMap:
         rel_pos = self.get_relative_position(pos)
 
         # poll from the four points around this one, and get an average
-        h = DisplacementMap.bilinear_interp(self, rel_pos)
+        h = utility.bilinear_interp(self, rel_pos)
         # h = self.source[int(rel_pos[0]), int(rel_pos[1])]
         return h + self.origin[2]
 
@@ -178,7 +187,7 @@ class DisplacementMap:
 
         a = (self.d_x_p_size, 0, x_dh)
         b = (0, self.d_y_p_size, y_dh)
-        c1, c2, c3 = DisplacementMap.cross(a, b)
+        c1, c2, c3 = utility.cross(a, b)
 
         # Normalize the vector!
         n = (c1 ** 2 + c2 ** 2 + c3 ** 2) ** 0.5
@@ -187,7 +196,7 @@ class DisplacementMap:
     def get_slope(self, pos):
         """Return the angle away from verticle that this 2D DM coordinate is facing"""
 
-        return math.acos(DisplacementMap.dot(self.get_surface_normals(pos), (0, 0, 1)))
+        return math.acos(utility.dot(self.get_surface_normals(pos), (0, 0, 1)))
 
     def realize(self):
         """Actually create the displacements that this entity is made out of."""
@@ -260,47 +269,17 @@ class DisplacementMap:
 
                 d = brush.DispInfo(self.power, norms, dists, alphas)
 
+
                 floor = Block(types.Vertex(x_pos, y_pos, self.origin.z),
                               (self.d_x_size, self.d_y_size, self.size[2]))
                 if self.material != "":
                     floor.set_material(self.material)
                 floor.top().children.append(d)  # Add disp map to the ground
+                # Store these in case they're needed.
+                floor.x_offset = x_offset
+                floor.y_offset = y_offset
 
                 self.displacement_brushes.append(floor)
-
-    @staticmethod
-    def cross(a, b):
-        """The cross product between vectors a and b. This code was copied off of StackOverflow, but it's better than
-        making you download numpy."""
-        c = (a[1] * b[2] - a[2] * b[1],
-             a[2] * b[0] - a[0] * b[2],
-             a[0] * b[1] - a[1] * b[0])
-
-        return c
-
-    @staticmethod
-    def dot(a, b):
-        """The dot product between vectors a and b."""
-        c = sum(a[i] * b[i] for i in range(len(a)))
-
-        return c
-
-    @staticmethod
-    def bilinear_interp(array, point):
-        """Interpolate between the values at the integer-positions around the given float-position in the given array."""
-        x = point[0]
-        y = point[1]
-
-        x_lower = math.floor(x)
-        x_upper = x_lower + 1
-        y_lower = math.floor(y)
-        y_upper = y_lower + 1
-
-        return (array[x_lower, y_lower] * (x_upper - x) * (y_upper - y) +
-                array[x_lower, y_upper] * (x_upper - x) * (y - y_lower) +
-                array[x_upper, y_lower] * (x - x_lower) * (y_upper - y) +
-                array[x_upper, y_upper] * (x - x_lower) * (y - y_lower)
-                )
 
 
     def __repr__(self, tab_level=-1):
