@@ -7,7 +7,7 @@ some terrain (a displacement map).
 """
 from vmflib2 import *
 from vmflib2.types import Vertex, Output
-from vmflib2.tools import Block, DisplacementMap
+from vmflib2.tools import Block, DisplacementMap, HollowBox
 import vmflib2.games.base as base
 import vmflib2.games.halflife2 as hl2
 from PIL import Image
@@ -175,55 +175,32 @@ ground.realize()
 # Create the trees and boats.
 generate_scatter(ground)
 
-# Real Floor (This is what seals the map to prevent leaks)
-real_floor = Block(Vertex(map_center[0], map_center[1], -16), (map_size[0], map_size[1], 32), 'tools/toolsnodraw')
+
+# We surround the map with a giant box, to be a skybox
+skybox = HollowBox((map_center[0], map_center[1], map_height / 2), (map_size[0], map_size[1], map_height))
+for brush in skybox.brushes:
+    brush.set_material('tools/toolsskybox2d')
+skybox.floor.set_material("tools/toolsnodraw")
 
 # This is the water brush. As is good practice, only the surface of the water has a water texture; the rest is nodraw
-water = Block(Vertex(map_center[0], map_center[1], water_height / 2), (map_size[0], map_size[1], water_height),
-              'tools/toolsnodraw')
+water = skybox.get_level_brush(water_height / 2, water_height)
+water.set_material("tools/toolsnodraw")
 water.top().material = 'nature/water_canals_city_murky'
 
-# Ceiling
-ceiling = Block(Vertex(map_center[0], map_center[1], map_height + 16), (map_size[0], map_size[1], 32))
-ceiling.set_material('tools/toolsskybox2d')
+# Add everything we prepared to the world geometry
+m.add_solids(skybox.brushes)
+m.add_solid(water)
 
-# add a func_viscluster, because all of the vis leaves in this open map can see each other; this tells vvis.exe the
-# result it will ultimately come to. This speeds up map compilation considerably.
+# Enclosing maps with big, open skyboxes like the one we just made is inefficient because we have a bunch of visleaves
+#   touching each other. Instead of letting vvis.exe check all of them, we just tell it they're all connected via
+#   a func_viscluster
+# (we create two, one at the top of the map, and one at the bottom. this is because the water brush splits the visleafs)
 for h in (map_height - 16, 16):
-    # (we create two, one at the top of the map, and one at the bottom. this is because the water brush splits the vis-leafs)
     viscluster = base.FuncViscluster(m)
-    viscluster_brush = Block(Vertex(map_center[0], map_center[1], h), (map_size[0], map_size[1], 32))
+    viscluster_brush = skybox.get_level_brush(h, 32)
     viscluster_brush.set_material('tools/toolstrigger')
     viscluster.children.append(viscluster_brush)
 
-# We surround the map with a giant box, to be a skybox. Note that being this open is incredibly inefficient, which is
-# why we made the visclusters earlier.
-skywalls = []
-wall_thickness = 64
-
-# Left wall
-skywalls.append(
-    Block(
-        Vertex(-wall_thickness / 2 + map_center[0] - map_size[0] / 2, map_center[1], map_height / 2),
-        (wall_thickness, map_size[1], map_height)))
-# Right wall
-skywalls.append(
-    Block(Vertex(+wall_thickness / 2 + map_center[0] + map_size[0] / 2, map_center[1], map_height / 2),
-          (64, map_size[1], map_height)))
-# Forward wall
-skywalls.append(
-    Block(Vertex(map_center[0], wall_thickness / 2 + map_center[1] + map_size[1] / 2, map_height / 2),
-          (map_size[0] + 2 * wall_thickness, wall_thickness, map_height)))
-# Rear wall
-skywalls.append(
-    Block(Vertex(map_center[0], -wall_thickness / 2 + map_center[1] - map_size[1] / 2, map_height / 2),
-          (map_size[0] + 2 * wall_thickness, wall_thickness, map_height)))
-for wall in skywalls:
-    wall.set_material('tools/toolsskybox2d')
-
-# Add everything we prepared to the world geometry
-m.add_solids(skywalls)
-m.add_solids([ceiling, water, real_floor])
 
 # Add the spawnpoint, at ground level, at the center of the map
 player_origin = types.Origin(map_center[0], map_center[1], ground.get_height(map_center) + 38)

@@ -15,7 +15,7 @@ class Block:
     This class allows for the simple creation and manipulation of 3D
     blocks (six-sided rectangular prisms) without having to manage
     the underlying brush (Solid) and its faces (Sides) manually.
-    You can think of this as the programatic analog to the Block Tool
+    You can think of this as the programmatic analog to the Block Tool
     in the Valve Hammer Editor.
 
     """
@@ -97,6 +97,63 @@ class Block:
         return self.brush.__repr__(tab_level)
 
 
+class HollowBox:
+    """A class representing an enclosed space created by 6 brushes.
+
+    You can think of this as the programmatic analog to the Hollow function in the Hammer Editor
+    """
+
+    def __init__(self, origin=types.Vertex(), size=types.Vertex(), thickness=32):
+        self.origin = origin
+
+        for dim in size:
+            if dim <= 0:
+                raise ValueError("Solid cannot have negative size!")
+
+        self.size = size
+        self.thickness = thickness
+
+        # Left wall
+        self.left_wall = Block(
+            types.Vertex(-self.thickness / 2 + self.origin[0] - self.size[0] / 2,
+                         self.origin[1],
+                         self.origin[2]),
+            (self.thickness, self.size[1], self.size[2]))
+        # Right wall
+        self.right_wall = Block(
+            types.Vertex(+self.thickness / 2 + self.origin[0] + self.size[0] / 2,
+                         self.origin[1],
+                         self.origin[2]),
+            (self.thickness, self.size[1], self.size[2]))
+        # Forward wall
+        self.front_wall = Block(
+            types.Vertex(self.origin[0],
+                         self.thickness / 2 + self.origin[1] + self.size[1] / 2,
+                         self.origin[2]),
+            (self.size[0] + 2 * self.thickness, self.thickness, self.size[2]))
+        # Rear wall
+        self.back_wall = Block(
+            types.Vertex(self.origin[0],
+                         -self.thickness / 2 + self.origin[1] - self.size[1] / 2,
+                         self.origin[2]),
+            (self.size[0] + 2 * self.thickness, self.thickness, self.size[2]))
+
+        # Ceiling
+        self.ceiling = self.get_level_brush(self.size[2] / 2 + self.thickness / 2 + self.origin[2], self.thickness)
+        # Floor
+        self.floor = self.get_level_brush(-self.size[2] / 2 - self.thickness / 2 + self.origin[2], self.thickness)
+
+        self.brushes = [self.left_wall, self.right_wall, self.front_wall, self.back_wall, self.ceiling, self.floor]
+
+
+    def get_level_brush(self, z_origin, z_size):
+        """Returns a brush the horizontal size of this box, with z_position and z_height given.
+        Think of filling the box part way with water, and letting it settle. That's what this function generates."""
+        return Block(
+            types.Vertex(self.origin[0], self.origin[1], z_origin),
+            (self.size[0], self.size[1], z_size)
+        )
+
 class DisplacementMap:
     """A class representing one upwards-facing mesh, possibly made of multiple displacements sewn together.
 
@@ -176,7 +233,6 @@ class DisplacementMap:
         h = utility.bilinear_interp(self, rel_pos)
         # h = self.source[int(rel_pos[0]), int(rel_pos[1])]
         return h + self.origin[2]
-
 
     def get_surface_normals(self, pos):
         """Return a vector pointing directly away from the surface at this 2D DM coordinate (NOT the norms
@@ -269,7 +325,6 @@ class DisplacementMap:
 
                 d = brush.DispInfo(self.power, norms, dists, alphas)
 
-
                 floor = Block(types.Vertex(x_pos, y_pos, self.origin.z),
                               (self.d_x_size, self.d_y_size, self.size[2]))
                 if self.material != "":
@@ -280,7 +335,6 @@ class DisplacementMap:
                 floor.y_offset = y_offset
 
                 self.displacement_brushes.append(floor)
-
 
     def __repr__(self, tab_level=-1):
         out = ""
