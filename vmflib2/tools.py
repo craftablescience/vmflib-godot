@@ -160,7 +160,7 @@ class DisplacementMap:
     """
 
     def __init__(self, source, source_alphas=None, origin=types.Vertex(), size=types.Vertex(), x_subdisplacements=4,
-                 y_subdisplacements=4, power=3):
+                 y_subdisplacements=4, power=3, add_nodraw_brush=False):
         # This is the data we will use to build our displacements.
         self.source = source
         # This is the data we use to build the alpha map
@@ -171,6 +171,8 @@ class DisplacementMap:
         self.size = size
         # This is the number of displacements we will have along the x and y axis, respectively.
         self.sub_displacements = (x_subdisplacements, y_subdisplacements)
+        # This is whether we want to add nodraw brushes underneath the displacement to block visibility.
+        self.add_nodraw_brush = add_nodraw_brush
 
         if power not in (2, 3, 4):
             raise ValueError("Power of a DisplacementMap must be 2, 3, or 4, not {0}.".format(power))
@@ -191,6 +193,7 @@ class DisplacementMap:
 
         self.material = ""
         self.displacement_brushes = []
+        self.misc_brushes = []
 
     def __getitem__(self, item):
         return self.source[item]
@@ -250,7 +253,7 @@ class DisplacementMap:
         return c1 / n, c2 / n, c3 / n
 
     def get_slope(self, pos):
-        """Return the angle away from verticle that this 2D DM coordinate is facing"""
+        """Return the angle away from vertical that this 2D DM coordinate is facing"""
 
         return math.acos(utility.dot(self.get_surface_normals(pos), (0, 0, 1)))
 
@@ -285,6 +288,7 @@ class DisplacementMap:
 
                 x_range = forward_range
                 y_range = backwards_range
+
 
                 norms = []
                 for i in x_range:
@@ -333,11 +337,32 @@ class DisplacementMap:
                 # Store these in case they're needed.
                 floor.x_offset = x_offset
                 floor.y_offset = y_offset
+                floor.displacement_distances = dists
 
                 self.displacement_brushes.append(floor)
+                if self.add_nodraw_brush:
+                    lowest_height = int(min(map(min, dists))) - 1
+                    if lowest_height > 1:
+                        # Don't make any brushes that are too small.
+                        nodraw_brush = Block(types.Vertex(x_pos, y_pos, self.origin.z + 0.5 * (lowest_height + self.size[2])),
+                              (self.d_x_size, self.d_y_size, int(lowest_height)), "tools/toolsnodraw")
+                        self.misc_brushes.append(nodraw_brush)
+
+    def get_brushes_above_level(self, level):
+        """Returns all of the displacements that have points at a distance from the displacementmap origin at or above
+        the given level"""
+        if len(self.displacement_brushes) == 0:
+            raise ValueError("Displacement map must be realized before calling get_brushes_above_level()!")
+
+        out = []
+        for brush in self.displacement_brushes:
+            if max(map(max, brush.displacement_distances)) >= level:
+                out.append(brush)
+        return out
+
 
     def __repr__(self, tab_level=-1):
         out = ""
-        for b in self.displacement_brushes:
+        for b in self.displacement_brushes + self.misc_brushes:
             out += b.__repr__(tab_level)
         return out

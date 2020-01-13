@@ -16,7 +16,7 @@ import math
 
 
 def slope_alphas(dm):
-    """Set a DisplacementMap's alpha value based on it's slope and the water level"""
+    """Set a DisplacementMap's alpha value based on its slope and the water level"""
 
     # Calculate the alphas for the displacement map. We could have just as easily read this in from the image.
     for x in range(image_size - 1):
@@ -24,15 +24,22 @@ def slope_alphas(dm):
             h = dm[x, y]
             # Start with the assumption that this is straight sand
             a = 0
-            # If we're above the water, then the alpha value will equal the height above the water, meaning that areas
-            # 255 units above water-level will be pure grass
+            # If we're above the water, then the alpha value will equal the height above the water (* 2), meaning that
+            # areas 128 units above water-level will be pure grass
             if h > water_height:
-                a = h - water_height
+                a = (h - water_height) * 2
             if a > 255:
                 a = 255
-            # Subtract 3 times the angle (as 180 degrees = 255 alpha units) from the alpha value
-            # This way, steeper areas appear sandier.
-            a -= dm.get_slope((x, y)) * (255 / math.pi) * 3
+
+            # Get the angle of the slope here
+            slope_angle = math.degrees(dm.get_slope((x, y)))
+
+            # Add a sharp decrease in alpha around 45 degrees, so that unclimbable areas are visible
+            if slope_angle > 30 and slope_angle < 60:
+                a -= (slope_angle - 30) * 7
+            elif slope_angle >= 60:
+                a -= (slope_angle - 60) * 2 + 210
+
             if a < 0:
                 a = 0
             # Finally, we set the actual value to what we've determined
@@ -40,11 +47,13 @@ def slope_alphas(dm):
 
 def generate_scatter(dm):
     """Generate trees above the waterline, and boats near the shore."""
-    # This section places something on the surface every few units -- good for ensuring that the get_height method works
+    # This section places something on the surface every few units -- good for testing out the get_height method
     scatter_offset = 128
     for x in range((map_center[0] - map_size[0] // 2) + scatter_offset, (map_center[0] + map_size[0] // 2), scatter_offset):
         for y in range((map_center[1] - map_size[1] // 2) + scatter_offset, (map_center[1] + map_size[1] // 2),
                        scatter_offset):
+
+            slope_angle = math.degrees(dm.get_slope(dm.get_relative_position((x,y))))
             h = ground.get_height((x, y))
 
             if water_height - 64 < h < water_height - 32 and random.randrange(20) == 0:
@@ -52,8 +61,8 @@ def generate_scatter(dm):
                 base.PropPhysics(m, origin=types.Origin(x, y, water_height + 8),
                                  angles=types.Origin(0, random.randrange(360), 0),
                                  model="models/props_canal/boat001{0}.mdl".format(("a", "b")[random.randrange(2)]))
-            elif water_height + 128 < h and random.randrange(20) == 0:
-                # We have an area somewhat away from the shore, so we can put a tree here.
+            elif water_height + 128 < h and random.randrange(15) == 0 and slope_angle < 30:
+                # We have a flat area somewhat away from the shore, so we can put a tree here.
                 base.PropStatic(m, origin=types.Origin(x, y, h - 3),
                                 model="models/props_foliage/tree_deciduous_0{0}a.mdl".format(random.randrange(3) + 1),
                                 angles=types.Origin(0, random.randrange(360), 0), skin=1)
@@ -99,19 +108,21 @@ def create_helicopter(m):
 
 m = vmf.ValveMap()
 
-heightmap_range = 1024
+heightmap_range = 1024 * 4
 
 displacement_height_scale = heightmap_range / 255
 
-map_size = ((64 + 32) * 256, (64 + 32) * 256)
+displacements_per_side = 20
+
+# We want the size of displacements to be multiples of 1024 because that gives VVIS an easier time of it
+map_size = (1024*displacements_per_side, 1024*displacements_per_side)
 map_height = heightmap_range + (1024 * 2)
-water_height = 256
+water_height = 512
 
 # Environment and lighting
 # Sun angle	S Pitch	Brightness		Ambience
 # 0 225 0	 -25	 254 242 160 400	172 196 204 80
 
-displacements_per_side = 32
 
 d_x_size = map_size[0] / displacements_per_side
 d_y_size = map_size[1] / displacements_per_side
@@ -123,7 +134,7 @@ power = 3
 
 image_size = 2 ** power * displacements_per_side + 1
 
-heightmap_file = "examples/height.png"
+heightmap_file = "height4.png"
 
 # Open up the source image and resize it to be the number of displacement points
 image = Image.open(heightmap_file).resize((image_size, image_size), Image.BICUBIC).convert('L')
@@ -159,7 +170,7 @@ disp_org = types.Vertex(map_center[0], map_center[1], -16)  # types.Vertex(map_s
 # Create a DisplacementMap to act as the ground.
 ground = DisplacementMap(source=new_source, source_alphas=alphas, origin=disp_org,
                          size=types.Vertex(map_size[0], map_size[1], 32), x_subdisplacements=displacements_per_side,
-                         y_subdisplacements=displacements_per_side, power=power)
+                         y_subdisplacements=displacements_per_side, power=power, add_nodraw_brush=True)
 m.add_solid(ground)
 
 # We choose a texture that supports alpha blending, to show off that feature.
@@ -171,6 +182,10 @@ slope_alphas(ground)
 
 # Create the displacement brushes from the displacement map.
 ground.realize()
+
+# Change all the high displacements to a material that has rocks instead of sand. (This value is carefully selected)
+for block in ground.get_brushes_above_level(1096):
+    block.set_material("nature/blendrocksgrass006a")
 
 # Create the trees and boats.
 generate_scatter(ground)
@@ -194,12 +209,16 @@ m.add_solid(water)
 # Enclosing maps with big, open skyboxes like the one we just made is inefficient because we have a bunch of visleaves
 #   touching each other. Instead of letting vvis.exe check all of them, we just tell it they're all connected via
 #   a func_viscluster
-# (we create two, one at the top of the map, and one at the bottom. this is because the water brush splits the visleafs)
-for h in (map_height - 16, 16):
-    viscluster = base.FuncViscluster(m)
-    viscluster_brush = skybox.get_level_brush(h, 32)
-    viscluster_brush.set_material('tools/toolstrigger')
-    viscluster.children.append(viscluster_brush)
+viscluster = base.FuncViscluster(m)
+viscluster_brush = skybox.get_level_brush(map_height - 16, 32)
+viscluster_brush.set_material('tools/toolstrigger')
+viscluster.children.append(viscluster_brush)
+
+# We want to chop the visleaves in half, so that the mountains in the middle can actually block visibility.
+hint_brush = skybox.get_level_brush(1450,4)
+hint_brush.set_material("tools/toolsskip")
+hint_brush.bottom().material = "tools/toolshint"
+m.add_solid(hint_brush)
 
 
 # Add the spawnpoint, at ground level, at the center of the map
@@ -207,7 +226,9 @@ player_origin = types.Origin(map_center[0], map_center[1], ground.get_height(map
 spawn = base.InfoPlayerStart(m, origin=player_origin)
 suit = hl2.ItemSuit(m, origin=player_origin)
 
-airboat_spawn = (map_center[0] + 512, map_center[1])
+
+
+airboat_spawn = (map_center[0] + 650, map_center[1])
 airboat = hl2.PropVehicleAirboat(m, origin=types.Origin(airboat_spawn[0], airboat_spawn[1],
                                                         ground.get_height(airboat_spawn) + 32), EnableGun=1)
 
