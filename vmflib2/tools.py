@@ -154,6 +154,42 @@ class HollowBox:
             (self.size[0], self.size[1], z_size)
         )
 
+class GroundDisplacement:
+    """A class representing one upwards-facing displacements."""
+
+    def __init__(self, source, source_alphas=None, origin=types.Vertex(), size=types.Vertex(), power=3, add_nodraw_brush=False):
+        # This is the data we will use to build our displacements.
+        self.source = source
+        # This is the data we use to build the alpha map
+        self.source_alphas = source_alphas
+        # This is the physical location of the displacement's center.
+        self.origin = origin
+        # This is the length, width, and height of the displacement
+        self.size = size
+        # This is whether we want to add a nodraw brush underneath the displacement to block visibility.
+        self.add_nodraw_brush = add_nodraw_brush
+
+        if power not in (2, 3, 4):
+            raise ValueError("Power of a displacement must be 2, 3, or 4, not {0}.".format(power))
+
+        # The power of the displacement. (2 ^ power) is the number of grid points the displacement will have.
+        self.power = power
+
+        self.source_width = (2 ** self.power) + 1
+        self.source_height = (2 ** self.power) + 1
+
+        # The actual grid-distance between points
+        self.d_x_p_size = self.size[0] / (2 ** self.power)
+        self.d_y_p_size = self.size[1] / (2 ** self.power)
+
+        self.material = ""
+        self.displacement_brushes = []
+        self.misc_brushes = []
+
+        #TODO: Finish this
+
+
+
 class DisplacementMap:
     """A class representing one upwards-facing mesh, possibly made of multiple displacements sewn together.
 

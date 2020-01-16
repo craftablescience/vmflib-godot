@@ -42,6 +42,23 @@ class Origin:
     def __repr__(self):
         return '%s %s %s' % (self.x, self.y, self.z)
 
+    # Overload the arithmetic operators to allow us to add and subtract origins from each other
+    def __add__(self, other: "Origin") -> "Origin":
+        return Origin(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __sub__(self, other: "Origin") -> "Origin":
+        return Origin(self.x - other.x, self.y - other.y, self.z - other.z)
+
+    # Overload the arithmetic operators to allow us to scale each number in the origin by some number
+    def __mul__(self, other) -> "Origin":
+        return Origin(self.x * other, self.y * other, self.z * other)
+
+    def __truediv__(self, other) -> "Origin":
+        return Origin(self.x / other, self.y / other, self.z / other)
+
+    def __floordiv__(self, other) -> "Origin":
+        return Origin(self.x // other, self.y // other, self.z // other)
+
 
 class Axis:
 
@@ -57,7 +74,8 @@ class Axis:
 
     def __repr__(self):
         return '[%s %s %s %s] %s' % (
-        self.x, self.y, self.z, self.translate, self.scale)
+                self.x, self.y, self.z, self.translate, self.scale)
+
 
 class RGB:
 

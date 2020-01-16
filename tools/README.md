@@ -44,3 +44,15 @@ to your native Linux installation of the target game and launch it.
       --final               use with --hdr for slow high-quality HDR compile
       --sourcesdk SOURCESDK
                             location of your sourcesdk folder (for linux/wine)
+
+## import_fgd.py
+
+To help speed the creation of game-specific helper libraries, this script 
+was created. All of the files in `vmflib2.games` were created by running this
+script against FGD files.
+
+### Usage
+
+Good luck. You will have to run the script in interactive mode (from the vmflib2 directory), and I cannot
+guarantee that it will put the resulting script file in the right place. User-oriented
+generation of files for specific user-provided FGDs is ongoing. 

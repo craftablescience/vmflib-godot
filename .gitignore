@@ -17,3 +17,4 @@ dist/
 .idea/
 fgd/
 examples/vmflib2/
+venv/

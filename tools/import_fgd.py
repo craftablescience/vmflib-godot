@@ -51,6 +51,22 @@ class propertyType:
         # This is the type of object that this property type represents
         self.base_type = base_type
 
+    """Returns the string we should use to represent this in a type hint in a python source file."""
+    def get_type_hint(self) -> str:
+        # If we had to represent this as a string, then the python file we are generating will likely also have to
+        # represent this as a string, so enclose it with quotes. We could likely encase everything in quotes safely, but
+        # checking just feels right.
+        if self.base_type is None:
+            return ""
+        if type(self.base_type) == str:
+            return ': "{0}"'.format(self.base_type)
+        elif type(self.base_type) == type:
+            self.base_type: type
+            return ': {0}'.format(self.base_type.__name__)
+        else:
+            return ': {0}'.format(self.base_type)
+
+
 class propertyInstance:
     """Represents a single property in a single class"""
     def __init__(self, name: str, type: propertyType, short_description: str, default, long_description: str):
@@ -66,18 +82,20 @@ class propertyInstance:
         self.long_description = long_description
 
     def represent(self):
-        """Represent this property as a string in the output python file."""
+        """Represent this property as an assignment in the output python file."""
         out = ""
         ind2 = "\n" + indent_level(2)
-        out += "{0}# {1} : {2}{0}self.{3} = {3}".format(ind2, self.short_description, self.long_description, self.name,
-                                                        self.default)
+        out += "{0}# {1} : {2}" \
+               "{0}self.{3}{5} = {3}".format(ind2, self.short_description, self.long_description, self.name, self.default,
+                                          self.type.get_type_hint())
 
         return out
 
     def init_line_represent(self):
         """Represent this property as an arg in the init function line"""
-        out = ", {0}={1}".format(self.name, self.default)
+        out = ", {0}{2}={1}".format(self.name, self.default, self.type.get_type_hint())
         return out
+
 
 class propertyFiller(propertyInstance):
     """Prints a blank line in the property list"""
@@ -95,7 +113,7 @@ class propertyFiller(propertyInstance):
 
 class fgdClass:
     """Represents a single class found in the FGD file (usually an entity)"""
-    def __init__(self, class_name: str, argument_string: str, line_number: int, fgd_name: str, class_lookup:dict):
+    def __init__(self, class_name: str, argument_string: str, line_number: int, fgd_name: str, class_lookup: dict):
 
         # Whether this is a base class that can be safely ignored.
         self.is_base = (class_name == "BaseClass")
@@ -145,6 +163,7 @@ class fgdClass:
 
     def represent(self):
         """Represent this class as a string in the output python file."""
+        # Three levels of indentations, for future reference
         ind1 = "\n" + indent_level(1)
         ind2 = "\n" + indent_level(2)
         ind3 = "\n" + indent_level(3)
@@ -155,8 +174,10 @@ class fgdClass:
         out += ind1
         out += DOCSTRING.format(docstring)
 
+        # Create the header for the constructor method for this FGD object
         out += ind1
-        out += "def __init__(self, vmf_map"
+        out += "def __init__(self, vmf_map: \"ValveMap\""
+        # Add all of the properties as arugments in our header
         for p in self.properties:
             p: propertyInstance
             out += p.init_line_represent()
@@ -190,21 +211,24 @@ string_type = propertyType(str)
 integer_type = propertyType(int)
 float_type = propertyType(float)
 
-color255_type = None #propertyType(vmflib2.types.RGB)
-origin_type = None #propertyType(vmflib2.types.Origin)
+# This means we have to type to represent this class. We should fix that at some point@
+no_type = propertyType(None)
+
+color255_type = propertyType("RGB")
+origin_type = propertyType("Origin")
 
 # Which property type to use for each type listed in the file.
 property_types = {
-    "choices": None,
-    "flags": None,
-    "axis": None,
-    "angle": None,
-    "angle_negative_pitch": None,
+    "choices": no_type,
+    "flags": no_type,
+    "axis": no_type,
+    "angle": origin_type,
+    "angle_negative_pitch": origin_type,
     "color255": color255_type,
-    "color1": None,
+    "color1": no_type,
     "origin": origin_type,
-    "sidelist": None,
-    "vecline": None,
+    "sidelist": no_type,
+    "vecline": no_type,
     "vector": origin_type,
     "integer": integer_type,
     "node_dest": integer_type,
@@ -399,7 +423,6 @@ def read_fgd(fgd_path, class_lookup):
     return classes
 
 def import_all():
-
     for f in os.listdir("fgd/"):
         print("Importing {0}".format(f))
         import_fgd(os.path.join("fgd", f))

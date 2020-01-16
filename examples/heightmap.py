@@ -6,7 +6,7 @@ some terrain (a displacement map).
 
 """
 from vmflib2 import *
-from vmflib2.types import Vertex, Output
+from vmflib2.types import Vertex, Output, Origin
 from vmflib2.tools import Block, DisplacementMap, HollowBox
 import vmflib2.games.base as base
 import vmflib2.games.halflife2 as hl2
@@ -58,14 +58,14 @@ def generate_scatter(dm):
 
             if water_height - 64 < h < water_height - 32 and random.randrange(20) == 0:
                 # This spot is in shallow water, so spawn a boat. (spawn it slightly higher than water level, so that it can float)
-                base.PropPhysics(m, origin=types.Origin(x, y, water_height + 8),
-                                 angles=types.Origin(0, random.randrange(360), 0),
+                base.PropPhysics(m, origin=Origin(x, y, water_height + 8),
+                                 angles=Origin(0, random.randrange(360), 0),
                                  model="models/props_canal/boat001{0}.mdl".format(("a", "b")[random.randrange(2)]))
             elif water_height + 128 < h and random.randrange(15) == 0 and slope_angle < 30:
                 # We have a flat area somewhat away from the shore, so we can put a tree here.
-                base.PropStatic(m, origin=types.Origin(x, y, h - 3),
+                base.PropStatic(m, origin=Origin(x, y, h - 3),
                                 model="models/props_foliage/tree_deciduous_0{0}a.mdl".format(random.randrange(3) + 1),
-                                angles=types.Origin(0, random.randrange(360), 0), skin=1)
+                                angles=Origin(0, random.randrange(360), 0), skin=1)
 
 
 def create_helicopter(m):
@@ -104,7 +104,8 @@ def create_helicopter(m):
                        air_node_offset):
             h = ground.get_height((x, y)) + helicopter_height
             node += 1
-            base.InfoNodeAir(m, origin=types.Origin(x, y, h), nodeid=node, nodeheight=h)
+            base.InfoNodeAir(m, origin=Origin(x, y, h), nodeid=node, nodeheight=h)
+
 
 m = vmf.ValveMap()
 
@@ -161,6 +162,7 @@ for x in range(image_size):
 
 m.world.skyname = 'sky_day02_01'
 light = base.LightEnvironment(m, angles="0 225 0", pitch=-25, _light="254 242 160 400", _ambient="172 196 204 80")
+
 
 # Displacement map for the floor
 # do cool stuff
@@ -229,12 +231,12 @@ suit = hl2.ItemSuit(m, origin=player_origin)
 
 
 airboat_spawn = (map_center[0] + 650, map_center[1])
-airboat = hl2.PropVehicleAirboat(m, origin=types.Origin(airboat_spawn[0], airboat_spawn[1],
+airboat = hl2.PropVehicleAirboat(m, origin=Origin(airboat_spawn[0], airboat_spawn[1],
                                                         ground.get_height(airboat_spawn) + 32), EnableGun=1)
 
 # Add a soundscape entity, up where we can see it, to the center of the map
 base.EnvSoundscape(m, radius=-1, soundscape="coast.general_shoreline",
-                   origin=types.Origin(map_center[0], map_center[1], map_height - 128))
+                   origin=Origin(map_center[0], map_center[1], map_height - 128))
 
 create_helicopter(m)
 
