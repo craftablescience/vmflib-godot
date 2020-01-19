@@ -9,12 +9,13 @@
 *.prt
 *.lin
 *.mdmp
+*.fgd
 
 build/
 dist/
 *.egg-info/
 
 .idea/
-fgd/
+
 examples/vmflib2/
 venv/

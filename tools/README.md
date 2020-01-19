@@ -47,12 +47,13 @@ to your native Linux installation of the target game and launch it.
 
 ## import_fgd.py
 
-To help speed the creation of game-specific helper libraries, this script 
-was created. All of the files in `vmflib2.games` were created by running this
-script against FGD files.
+This script creates helper libraries from the same FGD files that hammer reads.
+All of the files in `vmflib2.games` were created by running this script against FGD files.
 
 ### Usage
 
-Good luck. You will have to run the script in interactive mode (from the vmflib2 directory), and I cannot
-guarantee that it will put the resulting script file in the right place. User-oriented
-generation of files for specific user-provided FGDs is ongoing. 
+    $ tools/buildbsp.py [Path to the FGD file]
+    
+The python library will be placed in the same location as the .FGD file this script reads.
+Please ensure that any FGD files that your FGD file `@include`s is also in the same directory,
+as import_fgd.py needs to read those files also.

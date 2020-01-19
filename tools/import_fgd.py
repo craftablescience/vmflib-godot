@@ -299,8 +299,9 @@ def create_python_file(output_path:str, fgd_name:str, imports:list, classes:list
 def import_fgd(fgd_path:str):
 
     output_name = fgd_name_to_py_name(fgd_path)
+    output_dir, _ = os.path.split(fgd_path)
 
-    output_path = os.path.join("vmflib2", "games", "{0}".format(output_name))
+    output_path = os.path.join(output_dir, output_name)
 
     # A list of all of the files our output file will need to import
     imports = ["from vmflib2.vmf import *"]
@@ -423,6 +424,33 @@ def read_fgd(fgd_path, class_lookup):
     return classes
 
 def import_all():
-    for f in os.listdir("fgd/"):
+    for f in os.listdir(os.path.join("vmflib2", "games")):
+        _, ext = os.path.splitext(f)
+        if ext.lower() != ".fgd":
+            continue
         print("Importing {0}".format(f))
-        import_fgd(os.path.join("fgd", f))
+        import_fgd(os.path.join("vmflib2", "games", f))
+
+def main():
+    import sys
+
+
+    if len(sys.argv) < 2:
+        print("The location of the FGD file to import is a required argument!")
+        exit(2)
+    elif sys.argv[1].lower() in ("-h", "--help"):
+        print("Usage: import_fgd.py [Path to the FGD file to import]")
+        exit(0)
+    elif len(sys.argv) > 2:
+        print("This script can only handle one argument. If you don't like that, feel free to contribute to the project on Github.")
+        exit(2)
+    file = sys.argv[1]
+    if not os.path.exists(file):
+        print("File '{0}' was not found.".format(file))
+        exit(2)
+    print("Importing {0}".format(file))
+    import_fgd(file)
+
+
+if __name__ == '__main__':
+    main()
