@@ -1,4 +1,6 @@
 # vmflib-godot
+[![Discord](https://img.shields.io/discord/678074864346857482?logo=discord&style=flat-square)](https://discord.gg/ASgHfkX/)
+
 A port of vmflib2 to the Godot Game Engine.
 
 ## Information
