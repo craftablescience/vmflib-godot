@@ -1,5 +1,5 @@
-**To finish installation, add VMFDataManager.gd as a singleton in Project Settings > AutoLoad!**
-**Make sure the singleton is exactly called VMFDataManager, Godot may make some letters lowercase.**
+# vmflib-godot
+A port of vmflib2 to the Godot Game Engine.
 
 ## Information
 
@@ -12,6 +12,15 @@ The code is an improved version of [https://github.com/Trainzack/vmflib2](https:
 Thus, this code is as well. See more info at LICENSE.
 
 This addon is still in development. The overall foundation is in place, it is just a matter of adding more entity and texture listings, and adding more features.
+
+## Installation
+
+1. Download this repository as a ZIP.
+2. Unzip the downloaded file anywhere.
+3. Copy the `addons/` folder to the root folder of your project. It won't overwrite any addons you currently have installed.
+4. In Project Settings, under the Plugins tab select the checkbox to enable the `vmflib` plugin.
+5. In Project Settings, under the AutoLoad tab add `addons/vmflib/VMFDataManager.gd` as a singleton.
+   **Make sure it is exactly called VMFDataManager, Godot may make some letters lowercase.**
 
 ## Usage
 
